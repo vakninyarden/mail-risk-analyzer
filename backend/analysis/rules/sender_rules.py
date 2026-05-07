@@ -2,7 +2,7 @@ from typing import List
 
 from analysis.models import EmailContext, Finding, Severity
 from analysis.rules.base import DetectionRule
-
+from difflib import SequenceMatcher
 
 KNOWN_BRANDS = {
     "paypal": ["paypal.com"],
@@ -131,3 +131,55 @@ class DisplayNameMismatchRule(DetectionRule):
                 )
 
         return findings
+
+class LookalikeSenderDomainRule(DetectionRule):
+        """Detect sender domains that are very similar to known brand domains."""
+
+        rule_id = "LOOKALIKE_SENDER_DOMAIN"
+        description = "Detects sender domains that look similar to known organization domains."
+
+        SIMILARITY_THRESHOLD = 0.82
+
+        def evaluate(self, context: EmailContext) -> List[Finding]:
+            findings = []
+
+            if not context.sender_domain:
+                return findings
+
+            text_to_check = f"{context.display_name or ''} {context.subject}".lower()
+
+            for brand, allowed_domains in KNOWN_BRANDS.items():
+                brand_is_mentioned = brand in text_to_check
+
+                if not brand_is_mentioned:
+                    continue
+
+                for official_domain in allowed_domains:
+                    if context.sender_domain.endswith(official_domain):
+                        continue
+
+                    similarity_score = SequenceMatcher(
+                        None,
+                        context.sender_domain,
+                        official_domain
+                    ).ratio()
+
+                    if similarity_score >= self.SIMILARITY_THRESHOLD:
+                        findings.append(
+                            Finding(
+                                rule_id=self.rule_id,
+                                title="Lookalike sender domain detected",
+                                description=(
+                                    f"The email mentions {brand}, but the sender domain "
+                                    f"'{context.sender_domain}' is very similar to the official domain "
+                                    f"'{official_domain}'. This may indicate typosquatting or impersonation."
+                                ),
+                                severity=Severity.HIGH,
+                                confidence=0.9,
+                                score_delta=35,
+                                evidence=f"{context.sender_domain} vs {official_domain}",
+                                is_hard_signal=True,
+                            )
+                        )
+
+            return findings

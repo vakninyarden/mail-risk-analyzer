@@ -11,6 +11,7 @@ from analysis.rules.content_rules import (
 from analysis.rules.sender_rules import (
     BrandImpersonationRule,
     DisplayNameMismatchRule,
+    LookalikeSenderDomainRule,
     SenderDomainDigitRule,
 )
 from analysis.rules.url_rules import (
@@ -36,6 +37,7 @@ class RiskEngine:
             SenderDomainDigitRule(),
             BrandImpersonationRule(),
             DisplayNameMismatchRule(),
+            LookalikeSenderDomainRule(),
         ]
 
     def analyze(self, subject: str, sender: str, body: str) -> dict:
@@ -75,17 +77,16 @@ class RiskEngine:
             if finding.is_hard_signal and finding.confidence >= 0.85
         ]
 
-        # A hard signal should raise the score, but not every weak/medium signal
-        # should immediately become High Risk.
         if high_confidence_hard_signals:
             score = max(score, 70)
 
-        # Strong combinations should raise confidence further.
+
         rule_ids = {finding.rule_id for finding in findings}
 
         has_brand_issue = bool(
-            {"BRAND_IMPERSONATION", "DISPLAY_NAME_MISMATCH"} & rule_ids
+            {"BRAND_IMPERSONATION", "DISPLAY_NAME_MISMATCH", "LOOKALIKE_SENDER_DOMAIN"} & rule_ids
         )
+        has_sender_lookalike = "LOOKALIKE_SENDER_DOMAIN" in rule_ids
         has_credential_request = "CREDENTIAL_REQUEST" in rule_ids
         has_suspicious_url = bool(
             {"URL_SHORTENER", "SUSPICIOUS_URL_PATTERN", "INSECURE_HTTP_URL"} & rule_ids
@@ -99,6 +100,9 @@ class RiskEngine:
             score = max(score, 75)
 
         if has_lookalike_domain:
+            score = max(score, 80)
+
+        if has_sender_lookalike:
             score = max(score, 80)
 
         return min(score, 100)
