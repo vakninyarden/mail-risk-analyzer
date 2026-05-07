@@ -21,6 +21,7 @@ class UrlShortenerRule(DetectionRule):
         "is.gd",
         "cutt.ly",
         "rebrand.ly",
+        "lnkd.in",
     ]
 
     def evaluate(self, context: EmailContext) -> List[Finding]:
@@ -29,15 +30,15 @@ class UrlShortenerRule(DetectionRule):
         for url in context.urls:
             domain = extract_domain_from_url(url)
 
-            if domain and any(shortener in domain for shortener in self.SHORTENER_DOMAINS):
+            if domain and any(shortener == domain or domain.endswith("." + shortener) for shortener in self.SHORTENER_DOMAINS):
                 findings.append(
                     Finding(
                         rule_id=self.rule_id,
                         title="URL shortener detected",
                         description="The email contains a shortened URL, which can hide the real destination.",
                         severity=Severity.MEDIUM,
-                        confidence=0.75,
-                        score_delta=15,
+                        confidence=0.55,
+                        score_delta=8,
                         evidence=url,
                     )
                 )
@@ -61,9 +62,9 @@ class InsecureHttpUrlRule(DetectionRule):
                         rule_id=self.rule_id,
                         title="Insecure HTTP link detected",
                         description="The email contains a link using HTTP instead of HTTPS.",
-                        severity=Severity.MEDIUM,
-                        confidence=0.65,
-                        score_delta=12,
+                        severity=Severity.LOW,
+                        confidence=0.45,
+                        score_delta=5,
                         evidence=url,
                     )
                 )
@@ -72,7 +73,7 @@ class InsecureHttpUrlRule(DetectionRule):
 
 
 class SuspiciousUrlPatternRule(DetectionRule):
-    """Detect suspicious keywords or injection-like patterns inside URLs."""
+    """Detect suspicious keywords or clear injection-like patterns inside URLs."""
 
     rule_id = "SUSPICIOUS_URL_PATTERN"
     description = "Detects suspicious patterns inside URLs."
@@ -87,16 +88,13 @@ class SuspiciousUrlPatternRule(DetectionRule):
         "payment",
     ]
 
-    INJECTION_LIKE_PATTERNS = [
-        "select",
-        "union",
-        "drop",
-        "<script",
-        "%27",
-        "%22",
-        "or%201%3d1",
-        "cmd=",
-        "powershell",
+    # More precise patterns to avoid false positives like "selection" or normal tracking URLs.
+    INJECTION_LIKE_REGEXES = [
+        re.compile(r"(%27|'|\")\s*(or|and)\s*(%27|'|\")?\s*1\s*=\s*1", re.IGNORECASE),
+        re.compile(r"union(\+|%20|\s)+select", re.IGNORECASE),
+        re.compile(r"<\s*script", re.IGNORECASE),
+        re.compile(r"(\?|&)(cmd|command|exec|powershell)=", re.IGNORECASE),
+        re.compile(r";\s*(drop|delete|insert|update)\s+", re.IGNORECASE),
     ]
 
     def evaluate(self, context: EmailContext) -> List[Finding]:
@@ -112,20 +110,20 @@ class SuspiciousUrlPatternRule(DetectionRule):
                         title="Suspicious URL wording detected",
                         description="The URL contains login, verification, payment, or account-related wording.",
                         severity=Severity.MEDIUM,
-                        confidence=0.7,
-                        score_delta=12,
+                        confidence=0.65,
+                        score_delta=10,
                         evidence=url,
                     )
                 )
 
-            if any(pattern in lowered_url for pattern in self.INJECTION_LIKE_PATTERNS):
+            if any(pattern.search(url) for pattern in self.INJECTION_LIKE_REGEXES):
                 findings.append(
                     Finding(
                         rule_id=self.rule_id,
                         title="Injection-like pattern detected in URL",
-                        description="The URL contains patterns that look like an injection payload. The system treats it as text only and does not open it.",
+                        description="The URL contains a clear injection-like pattern. The system treats it as text only and does not open it.",
                         severity=Severity.HIGH,
-                        confidence=0.85,
+                        confidence=0.9,
                         score_delta=25,
                         evidence=url,
                         is_hard_signal=True,

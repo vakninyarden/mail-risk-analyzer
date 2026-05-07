@@ -35,8 +35,8 @@ class SenderDomainDigitRule(DetectionRule):
                     title="Sender domain contains digits",
                     description="The sender domain contains digits, which may indicate a lookalike or impersonation attempt.",
                     severity=Severity.MEDIUM,
-                    confidence=0.7,
-                    score_delta=15,
+                    confidence=0.65,
+                    score_delta=12,
                     evidence=context.sender_domain,
                 )
             ]
@@ -45,7 +45,14 @@ class SenderDomainDigitRule(DetectionRule):
 
 
 class BrandImpersonationRule(DetectionRule):
-    """Detect when a known brand is mentioned but the sender domain does not match."""
+    """
+    Detect possible brand impersonation.
+
+    This rule intentionally checks only stronger identity signals:
+    display name and subject.
+    It does not scan the full email body, because legitimate emails may mention
+    Microsoft Teams, Facebook, LinkedIn, etc. in signatures or meeting links.
+    """
 
     rule_id = "BRAND_IMPERSONATION"
     description = "Detects possible brand impersonation based on brand mentions and sender domain mismatch."
@@ -56,7 +63,7 @@ class BrandImpersonationRule(DetectionRule):
         if not context.sender_domain:
             return findings
 
-        text_to_check = f"{context.display_name or ''} {context.subject} {context.body}".lower()
+        text_to_check = f"{context.display_name or ''} {context.subject}".lower()
 
         for brand, allowed_domains in KNOWN_BRANDS.items():
             brand_is_mentioned = brand in text_to_check
@@ -71,12 +78,12 @@ class BrandImpersonationRule(DetectionRule):
                         rule_id=self.rule_id,
                         title="Possible brand impersonation",
                         description=(
-                            f"The email mentions {brand}, but the sender domain "
+                            f"The sender or subject mentions {brand}, but the sender domain "
                             f"does not match the expected organization domain."
                         ),
                         severity=Severity.HIGH,
-                        confidence=0.9,
-                        score_delta=30,
+                        confidence=0.85,
+                        score_delta=25,
                         evidence=context.sender_domain,
                         is_hard_signal=True,
                     )

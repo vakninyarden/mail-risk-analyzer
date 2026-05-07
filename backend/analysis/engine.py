@@ -70,14 +70,42 @@ class RiskEngine:
         """Calculate final risk score from all findings."""
         score = sum(finding.score_delta for finding in findings)
 
-        if any(finding.is_hard_signal for finding in findings):
+        high_confidence_hard_signals = [
+            finding for finding in findings
+            if finding.is_hard_signal and finding.confidence >= 0.85
+        ]
+
+        # A hard signal should raise the score, but not every weak/medium signal
+        # should immediately become High Risk.
+        if high_confidence_hard_signals:
+            score = max(score, 70)
+
+        # Strong combinations should raise confidence further.
+        rule_ids = {finding.rule_id for finding in findings}
+
+        has_brand_issue = bool(
+            {"BRAND_IMPERSONATION", "DISPLAY_NAME_MISMATCH"} & rule_ids
+        )
+        has_credential_request = "CREDENTIAL_REQUEST" in rule_ids
+        has_suspicious_url = bool(
+            {"URL_SHORTENER", "SUSPICIOUS_URL_PATTERN", "INSECURE_HTTP_URL"} & rule_ids
+        )
+        has_lookalike_domain = "PUNYCODE_OR_UNICODE_DOMAIN" in rule_ids
+
+        if has_brand_issue and has_credential_request:
+            score = max(score, 85)
+
+        if has_credential_request and has_suspicious_url:
             score = max(score, 75)
+
+        if has_lookalike_domain:
+            score = max(score, 80)
 
         return min(score, 100)
 
     def _calculate_verdict(self, score: int) -> str:
         """Convert numeric score into user-facing verdict."""
-        if score >= 70:
+        if score >= 75:
             return "High Risk"
 
         if score >= 40:
