@@ -64,12 +64,6 @@ function callBackend(subject, sender, body) {
 }
 
 function buildResultCard(result) {
-  const reasonsText = result.reasons
-    .map(function(reason) {
-      return "• " + reason;
-    })
-    .join("<br>");
-
   const section = CardService.newCardSection()
     .addWidget(
       CardService.newKeyValue()
@@ -83,8 +77,24 @@ function buildResultCard(result) {
     )
     .addWidget(
       CardService.newTextParagraph()
-        .setText("<b>Reasoning:</b><br>" + reasonsText)
+        .setText("<b>Reasoning</b>")
     );
+
+  const reasons = result.reasons || [];
+
+  if (reasons.length === 0) {
+    section.addWidget(
+      CardService.newTextParagraph()
+        .setText("No reasoning was returned by the backend.")
+    );
+  } else {
+    reasons.forEach(function(reason, index) {
+      section.addWidget(
+        CardService.newTextParagraph()
+          .setText((index + 1) + ". " + reason)
+      );
+    });
+  }
 
   return CardService.newCardBuilder()
     .setHeader(
