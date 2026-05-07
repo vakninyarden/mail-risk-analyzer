@@ -2,8 +2,11 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
 
+from analysis.engine import RiskEngine
+
 
 app = FastAPI(title="Mail Risk Analyzer Backend")
+risk_engine = RiskEngine()
 
 
 class EmailAnalysisRequest(BaseModel):
@@ -28,13 +31,12 @@ def health_check():
 
 @app.post("/analyze-email", response_model=EmailAnalysisResponse)
 def analyze_email(request: EmailAnalysisRequest):
-    """Analyze an email and return a demo risk result."""
+    """Analyze an email and return a risk result."""
 
-    return EmailAnalysisResponse(
-        score=50,
-        verdict="Suspicious",
-        reasons=[
-            "Demo analysis result",
-            "The backend successfully received the email data"
-        ]
+    result = risk_engine.analyze(
+        subject=request.subject,
+        sender=request.sender,
+        body=request.body,
     )
+
+    return EmailAnalysisResponse(**result)
