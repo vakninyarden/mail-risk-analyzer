@@ -25,22 +25,36 @@ function analyzeCurrentEmail(e) {
 
     const subject = message.getSubject();
     const sender = message.getFrom();
+    const body = message.getPlainBody();
+    const bodyPreview = body ? body.substring(0, 300) : "No plain text body found";
+    const bodyLength = body ? body.length : 0;
+
+
 
     const section = CardService.newCardSection()
-      .addWidget(
-        CardService.newKeyValue()
-          .setTopLabel("Subject")
-          .setContent(subject || "No subject")
-      )
-      .addWidget(
-        CardService.newKeyValue()
-          .setTopLabel("Sender")
-          .setContent(sender || "Unknown sender")
-      )
-      .addWidget(
-        CardService.newTextParagraph()
-          .setText("This confirms the add-on can read the currently opened email.")
-      );
+    .addWidget(
+       CardService.newKeyValue()
+      .setTopLabel("Subject")
+      .setContent(subject || "No subject")
+     )
+  .addWidget(
+    CardService.newKeyValue()
+      .setTopLabel("Sender")
+      .setContent(sender || "Unknown sender")
+  )
+  .addWidget(
+    CardService.newKeyValue()
+      .setTopLabel("Body Length")
+      .setContent(bodyLength + " characters")
+  )
+  .addWidget(
+    CardService.newTextParagraph()
+      .setText("<b>Body Preview:</b><br>" + bodyPreview)
+  )
+  .addWidget(
+    CardService.newTextParagraph()
+      .setText("This confirms the add-on can read the currently opened email body.")
+  );
 
     return CardService.newCardBuilder()
       .setHeader(
