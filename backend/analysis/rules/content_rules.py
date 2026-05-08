@@ -116,3 +116,55 @@ class FinancialLanguageRule(DetectionRule):
                 break
 
         return findings
+
+class RewardScamLanguageRule(DetectionRule):
+    """Detect reward, prize, or too-good-to-be-true language."""
+
+    rule_id = "REWARD_SCAM_LANGUAGE"
+    description = "Detects prize, reward, or too-good-to-be-true scam wording."
+
+    REWARD_KEYWORDS = [
+        "you won",
+        "congratulations",
+        "free gift",
+        "claim your prize",
+        "claim reward",
+        "exclusive prize",
+        "lottery",
+        "guaranteed profit",
+    ]
+
+    def evaluate(self, context: EmailContext) -> List[Finding]:
+        matched_keywords = [
+            keyword
+            for keyword in self.REWARD_KEYWORDS
+            if keyword in context.full_text
+        ]
+
+        if len(matched_keywords) >= 2:
+            return [
+                Finding(
+                    rule_id=self.rule_id,
+                    title="Reward scam language detected",
+                    description="The email uses prize, reward, or too-good-to-be-true wording commonly seen in scam attempts.",
+                    severity=Severity.MEDIUM,
+                    confidence=0.7,
+                    score_delta=40,
+                    evidence=", ".join(matched_keywords[:3]),
+                )
+            ]
+
+        if len(matched_keywords) == 1:
+            return [
+                Finding(
+                    rule_id=self.rule_id,
+                    title="Reward-related language detected",
+                    description="The email contains reward or prize-related wording that may be suspicious in some contexts.",
+                    severity=Severity.LOW,
+                    confidence=0.5,
+                    score_delta=10,
+                    evidence=matched_keywords[0],
+                )
+            ]
+
+        return []

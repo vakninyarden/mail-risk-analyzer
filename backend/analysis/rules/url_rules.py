@@ -90,7 +90,10 @@ class SuspiciousUrlPatternRule(DetectionRule):
 
     # More precise patterns to avoid false positives like "selection" or normal tracking URLs.
     INJECTION_LIKE_REGEXES = [
-        re.compile(r"(%27|'|\")\s*(or|and)\s*(%27|'|\")?\s*1\s*=\s*1", re.IGNORECASE),
+        re.compile(
+            r"(%27|'|\")(%20|\+|\s)*(or|and)(%20|\+|\s)*(%27|'|\")?(%20|\+|\s)*1(%20|\+|\s)*(=|%3d)(%20|\+|\s)*1",
+            re.IGNORECASE,
+        ),
         re.compile(r"union(\+|%20|\s)+select", re.IGNORECASE),
         re.compile(r"<\s*script", re.IGNORECASE),
         re.compile(r"(\?|&)(cmd|command|exec|powershell)=", re.IGNORECASE),

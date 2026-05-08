@@ -6,6 +6,7 @@ from analysis.rules.base import DetectionRule
 from analysis.rules.content_rules import (
     CredentialRequestRule,
     FinancialLanguageRule,
+    RewardScamLanguageRule,
     UrgencyLanguageRule,
 )
 from analysis.rules.sender_rules import (
@@ -30,6 +31,7 @@ class RiskEngine:
             UrgencyLanguageRule(),
             CredentialRequestRule(),
             FinancialLanguageRule(),
+            RewardScamLanguageRule(),
             UrlShortenerRule(),
             InsecureHttpUrlRule(),
             SuspiciousUrlPatternRule(),
@@ -93,6 +95,8 @@ class RiskEngine:
         )
         has_lookalike_domain = "PUNYCODE_OR_UNICODE_DOMAIN" in rule_ids
 
+        has_urgency = "URGENCY_LANGUAGE" in rule_ids
+
         if has_brand_issue and has_credential_request:
             score = max(score, 85)
 
@@ -101,6 +105,9 @@ class RiskEngine:
 
         if has_lookalike_domain:
             score = max(score, 80)
+
+        if has_urgency and has_credential_request:
+            score = max(score, 45)
 
         if has_sender_lookalike:
             score = max(score, 80)
